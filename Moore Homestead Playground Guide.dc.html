@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+      <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
+      <style>
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+        }
+
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          color: #1c1c1b;
+        }
+
+        a {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        a:hover {
+          opacity: 0.75;
+        }
+
+        .maplibregl-ctrl-attrib {
+          font-size: 10px;
+          opacity: 0.7;
+        }
+
+        .guide-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .guide-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
+        @keyframes labelPop {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .label-popup {
+          z-index: 35;
+        }
+
+        .label-popup .maplibregl-popup-content {
+          padding: 0;
+          border-radius: 0;
+          border: 1px solid #1c1c1b;
+          box-shadow: 0 8px 24px rgba(20, 30, 28, 0.18);
+          animation: labelPop 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .label-popup .maplibregl-popup-tip {
+          border-top-color: #1c1c1b;
+        }
+
+        .label-popup .maplibregl-popup-close-button {
+          font-size: 16px;
+          color: #8a8a86;
+          right: 6px;
+          top: 4px;
+        }
+
+        @keyframes settle {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .guide-enter {
+          animation: guideEnter 780ms cubic-bezier(0.25, 0.6, 0.3, 1) 140ms both;
+          transform-origin: 50% 50%;
+        }
+
+        .guide-exit {
+          animation: guideExit 540ms cubic-bezier(0.45, 0.05, 0.5, 1) both;
+          transform-origin: 50% 50%;
+        }
+
+        @keyframes guideExit {
+          0% {
+            opacity: 1;
+            transform: perspective(2200px) rotateY(0deg) scale(1);
+          }
+
+          100% {
+            opacity: 0;
+            transform: perspective(2200px) rotateY(-8deg) scale(0.94);
+          }
+        }
+
+        @keyframes veilShow {
+          from {
+            opacity: 0;
+          }
+
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes guideEnter {
+          0% {
+            opacity: 0;
+            transform: perspective(2200px) rotateY(-7deg) scale(0.955);
+          }
+
+          100% {
+            opacity: 1;
+            transform: none;
+          }
+        }
+
+        @keyframes veilFade {
+          from {
+            opacity: 1;
+          }
+
+          to {
+            opacity: 0;
+          }
+        }
+
+        @keyframes flipOut {
+          0% {
+            transform: perspective(2200px) rotateY(0deg) scale(1);
+          }
+
+          100% {
+            transform: perspective(2200px) rotateY(88deg) scale(0.975);
+          }
+        }
+
+        @keyframes flipIn {
+          0% {
+            transform: perspective(2200px) rotateY(-88deg) scale(0.975);
+          }
+
+          100% {
+            transform: none;
+          }
+        }
+
+        .flip-out {
+          animation: flipOut 300ms cubic-bezier(0.45, 0, 0.75, 0.4) both;
+          transform-origin: 50% 50%;
+        }
+
+        .flip-in {
+          animation: flipIn 340ms cubic-bezier(0.25, 0.6, 0.3, 1) both;
+          transform-origin: 50% 50%;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+          color: #8b8d8c;
+          font-weight: 400;
+          font-size: 12.5px;
+          letter-spacing: 0;
+        }
+
+        @keyframes formShake {
+
+          0%,
+          100% {
+            transform: translateX(0)
+          }
+
+          20%,
+          60% {
+            transform: translateX(-5px)
+          }
+
+          40%,
+          80% {
+            transform: translateX(5px)
+          }
+        }
+
+        .form-shake {
+          animation: formShake 380ms ease;
+        }
+      </style>
+    </helmet>
+
+    <div data-screen-label="Moore Homestead Playground Guide" style="{{ rootStyle }}">
+
+      <!-- entrance veil: continues the white hand-off from the landing transition -->
+      <div
+        style="position:fixed;inset:0;z-index:200;background:#fbfbfa;pointer-events:none;animation:veilFade 460ms ease 80ms both;">
+      </div>
+
+      <!-- exit veil: whites out while the guide folds away, before returning to the archive -->
+      <sc-if value="{{ exiting }}" hint-placeholder-val="{{ false }}">
+        <div
+          style="position:fixed;inset:0;z-index:210;background:#fbfbfa;pointer-events:none;animation:veilShow 380ms ease 200ms both;">
+        </div>
+      </sc-if>
+
+      <div class="{{ enterClass }}" style="flex:1;display:flex;">
+        <div class="{{ guideFlipClass }}"
+          style="flex:1;display:flex;position:relative;background:#ffffff;overflow:hidden;">
+
+          <!-- ── FRONT SIDE: panel + map ─────────── -->
+          <div style="{{ frontStyle }}">
+
+            <!-- ── Left panel ─────────── -->
+            <aside style="{{ asideStyle }}">
+
+              <!-- masthead: solid theme block -->
+              <header style="flex:none;position:relative;padding:22px 28px 26px;background:{{ theme }};color:#ffffff;">
+                <a href="index.html#return-01" onClick="{{ goArchive }}" aria-label="Back to the guide archive"
+                  style="position:absolute;top:0;left:0;display:inline-flex;align-items:center;gap:8px;background:#1c1c1b;color:#ffffff;padding:{{ archPad }};font-weight:700;font-size:10px;letter-spacing:0.18em;line-height:1;transition:opacity 180ms;">←
+                  ARCHIVE</a>
+                <h1
+                  style="margin:20px 0 0;font-size:{{ titleSize }};line-height:0.98;font-weight:700;letter-spacing:-0.03em;color:#1c1c1b;text-align:right;">
+                  Moore Homestead Playground</h1>
+              </header>
+
+              <!-- scrollable body -->
+              <div ref="{{ scrollRef }}" class="guide-scroll" style="{{ scrollBodyStyle }}">
+
+                <!-- participate: flat black block -->
+                <div style="margin:0 0 28px;padding:24px 24px 26px;background:#1c1c1b;color:#ffffff;">
+                  <p
+                    style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:0.24em;color:{{ themeLight }};">
+                    ADD YOUR EXHIBIT</p>
+                  <p style="margin:0;font-size:21px;font-weight:700;line-height:1.35;letter-spacing:-0.01em;">Click a
+                    location on the map to label something you notice in the park.</p>
+                </div>
+
+                <!-- locate me: front-end only, asks permission on click, nothing stored -->
+                <div style="margin:-14px 0 28px;">
+                  <button onClick="{{ locateMe }}"
+                    style="width:100%;box-sizing:border-box;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;background:{{ theme }};border:2px solid #1c1c1b;color:#1c1c1b;cursor:pointer;box-shadow:4px 4px 0 #1c1c1b;transition:background 150ms,color 150ms,box-shadow 150ms,transform 150ms;"
+                    style-hover="background:#1c1c1b;color:#ffffff;box-shadow:2px 2px 0 #1c1c1b;transform:translate(2px,2px);"
+                    style-active="box-shadow:0 0 0 #1c1c1b;transform:translate(4px,4px);">
+                    <span
+                      style="display:flex;align-items:center;gap:11px;font-size:13px;font-weight:700;letter-spacing:0.16em;">
+                      <span
+                        style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid currentColor;border-radius:50%;flex:none;"><span
+                          style="display:block;width:5px;height:5px;border-radius:50%;background:currentColor;"></span></span>LOCATE
+                      ME
+                    </span>
+                    <span style="font-size:15px;font-weight:700;line-height:1;">→</span>
+                  </button>
+                  <sc-if value="{{ locateStatusOn }}" hint-placeholder-val="{{ false }}">
+                    <p style="{{ locateStatusStyle }}">{{ locateText }}</p>
+                  </sc-if>
+                </div>
+
+                <!-- back to park -->
+                <div style="margin:-14px 0 28px;">
+                  <button onClick="{{ backToPark }}"
+                    style="width:100%;box-sizing:border-box;font-family:inherit;display:flex;align-items:center;gap:11px;padding:15px 16px;background:#ffffff;border:2px solid #1c1c1b;color:#1c1c1b;cursor:pointer;box-shadow:4px 4px 0 #1c1c1b;transition:background 150ms,color 150ms,box-shadow 150ms,transform 150ms;"
+                    style-hover="background:#1c1c1b;color:#ffffff;box-shadow:2px 2px 0 #1c1c1b;transform:translate(2px,2px);"
+                    style-active="box-shadow:0 0 0 #1c1c1b;transform:translate(4px,4px);">
+                    <span style="font-size:13px;font-weight:700;letter-spacing:0.16em;">BACK TO PARK</span>
+                  </button>
+                </div>
+
+                <!-- exhibit index -->
+                <div style="border-top:4px solid #1c1c1b;padding-top:12px;">
+                  <p style="margin:0 0 6px;font-weight:700;font-size:12px;letter-spacing:0.2em;color:#1c1c1b;">
+                    EXHIBITION
+                    CATALOG</p>
+                </div>
+                <div style="display:flex;flex-direction:column;">
+                  <sc-for list="{{ exhibits }}" as="ex" hint-placeholder-count="12">
+                    <div ref="{{ ex.rowRef }}"
+                      style="display:flex;flex-direction:column;border-bottom:1px solid #d9dbda;">
+                      <button onClick="{{ ex.select }}" style="{{ ex.rowStyle }}">
+                        <span
+                          style="font-weight:700;font-size:15px;letter-spacing:0.02em;width:34px;flex:none;color:{{ ex.numColor }};">{{
+                          ex.num }}</span>
+                        <span style="flex:1;text-align:left;">
+                          <span
+                            style="display:block;font-size:15px;font-weight:700;line-height:1.3;letter-spacing:-0.005em;">{{
+                            ex.title }}</span>
+                        </span>
+                        <span style="font-weight:700;font-size:13px;flex:none;color:{{ ex.chevColor }};">{{ ex.chevron
+                          }}</span>
+                      </button>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <!-- colophon -->
+                <footer </footer>
+              </div>
+            </aside>
+
+            <!-- ── Right: the map, full-bleed and flat ── -->
+            <div style="{{ mapWrapStyle }}">
+              <div ref="{{ mapRef }}" style="position:absolute;inset:0;"></div>
+
+              <button onClick="{{ toggleMapView }}" aria-label="Toggle satellite view" style="{{ satBtnStyle }}"
+                style-hover="background:#1c1c1b;color:#ffffff;">{{ mapViewLabel }}</button>
+            </div>
+
+          </div>
+          <!-- ── /FRONT SIDE ── -->
+
+          <!-- ── BACK SIDE: exhibit overview ─────────── -->
+          <sc-if value="{{ backOpen }}" hint-placeholder-val="{{ false }}">
+            <div
+              style="flex:1;display:flex;flex-direction:column;background:#ffffff;overflow:hidden;position:relative;z-index:10;">
+
+              <header
+                style="flex:none;display:flex;justify-content:space-between;align-items:flex-end;padding:22px 28px 24px;background:{{ theme }};color:#ffffff;">
+                <div>
+                  <p
+                    style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.2em;color:rgba(28,28,27,0.72);">
+                    GUIDE 01 · MOORE HOMESTEAD PLAYGROUND · REVERSE SIDE</p>
+                  <h1
+                    style="margin:0;font-size:40px;line-height:0.98;font-weight:700;letter-spacing:-0.025em;color:#1c1c1b;">
+                    Exhibit Overview</h1>
+                </div>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.16em;color:rgba(28,28,27,0.72);">{{
+                  countText }}</span>
+              </header>
+
+              <div class="guide-scroll" style="flex:1;overflow-y:auto;">
+                <div style="display:flex;align-items:flex-start;">
+                  <sc-for list="{{ backColumns }}" as="col" hint-placeholder-count="3">
+                    <div style="flex:1;min-width:0;">
+                      <sc-for list="{{ col.items }}" as="ex" hint-placeholder-count="4">
+                        <div onClick="{{ ex.openGallery }}"
+                          style="padding:20px 22px 24px;border-right:1px solid #d9dbda;border-bottom:1px solid #d9dbda;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:background 180ms;"
+                          style-hover="background:#f4f6f5;">
+                          <div
+                            style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #1c1c1b;padding-bottom:7px;">
+                            <span style="font-size:12px;font-weight:700;letter-spacing:0.08em;color:#1c1c1b;">{{ ex.num
+                              }}</span>
+                          </div>
+                          <div onClick="{{ ex.phClick }}" ref="{{ ex.phRef }}" style="{{ ex.phStyle }}"></div>
+                          <h2
+                            style="margin:0;font-size:16px;line-height:1.25;font-weight:700;letter-spacing:-0.005em;color:#1c1c1b;">
+                            {{ ex.title }}</h2>
+                          <p style="margin:0;font-size:12px;line-height:1.55;color:#3a3a38;">{{ ex.body }}</p>
+                          <p
+                            style="margin:auto 0 0;padding-top:8px;border-top:1px solid #d9dbda;font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8a86;">
+                            {{ ex.metaLine }}</p>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <footer
+                  style="display:flex;justify-content:space-between;margin:0 28px;padding:14px 0 20px;border-top:1px solid #1c1c1b;font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#8a8a86;">
+                </footer>
+              </div>
+            </div>
+          </sc-if>
+          <!-- ── /BACK SIDE ── -->
+
+          <!-- ── ADD YOUR LABEL: centered modal (opens on map click; front-end prototype) ─────────── -->
+          <sc-if value="{{ draftOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Add Label Modal" onClick="{{ cancelDraft }}"
+              style="position:{{ overlayPos }};inset:0;z-index:55;background:rgba(255,255,255,0.65);display:flex;align-items:center;justify-content:center;padding-left:{{ modalPadLeft }};box-sizing:border-box;">
+              <div onClick="{{ stopClick }}" class="guide-scroll {{ modalShakeClass }}"
+                style="width:460px;max-width:{{ modalMaxW }};max-height:75%;overflow-y:auto;background:rgba(255,255,255,0.65);border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:22px 26px 26px;animation:settle 260ms ease both;">
+                <div
+                  style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1c1c1b;padding-bottom:12px;">
+                  <p style="margin:0;font-size:17px;font-weight:700;letter-spacing:0.16em;color:#1c1c1b;">ADD YOUR LABEL
+                  </p>
+                  <button onClick="{{ cancelDraft }}" aria-label="Close"
+                    style="background:none;border:none;padding:0 2px;font-family:inherit;font-size:25px;line-height:1;color:#8a8a86;cursor:pointer;"
+                    style-hover="color:#1c1c1b;">×</button>
+                </div>
+
+                <!-- mobile-only camera-first capture step -->
+                <sc-if value="{{ capOn }}" hint-placeholder-val="{{ false }}">
+                  <p style="margin:27px 0 10px;font-size:13px;font-weight:800;letter-spacing:0.16em;color:#1c1c1b;">YOUR
+                    EXHIBIT</p>
+                  <sc-if value="{{ mediaEmpty }}" hint-placeholder-val="{{ true }}">
+                    <div style="border:1px solid #1c1c1b;background:#fafaf9;padding:47px 25px;text-align:center;">
+                      <p style="margin:0 0 20px;font-size:15.5px;font-weight:400;line-height:1.55;color:#4c4d4a;">
+                        Capture an image or video of your exhibit.</p>
+                      <button onClick="{{ capPick }}"
+                        style="width:100%;box-sizing:border-box;background:#1c1c1b;color:#ffffff;border:none;padding:19px 22px;font-family:inherit;font-size:14px;font-weight:700;letter-spacing:0.14em;cursor:pointer;">OPEN
+                        CAMERA</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ mediaIsImg }}" hint-placeholder-val="{{ false }}">
+                    <div style="border:1px solid #1c1c1b;">
+                      <div ref="{{ mediaImgRef }}" style="width:100%;"></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ mediaIsVid }}" hint-placeholder-val="{{ false }}">
+                    <div style="border:1px solid #1c1c1b;">
+                      <div ref="{{ mediaVidRef }}" style="width:100%;background:#1c1c1b;"></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ capHasMedia }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:10px;margin-top:14px;">
+                      <button onClick="{{ capPick }}"
+                        style="flex:none;background:none;border:1px solid #1c1c1b;color:#1c1c1b;padding:17px 22px;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.12em;cursor:pointer;">RETAKE</button>
+                      <button onClick="{{ capContinue }}"
+                        style="flex:1;background:#1c1c1b;color:#ffffff;border:1px solid #1c1c1b;padding:17px 22px;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.12em;cursor:pointer;">CONTINUE
+                        →</button>
+                    </div>
+                  </sc-if>
+                  <input ref="{{ capInputRef }}" type="file" accept="image/*,video/*" capture="environment"
+                    onChange="{{ mediaFile }}" style="display:none;" />
+                </sc-if>
+
+                <sc-if value="{{ formOn }}" hint-placeholder-val="{{ true }}">
+                  <p style="margin:27px 0 10px;font-size:13px;font-weight:800;letter-spacing:0.16em;color:#1c1c1b;">YOUR
+                    EXHIBIT</p>
+                  <div onClick="{{ mediaPick }}" role="button" tabIndex="0" style="{{ mediaFrameStyle }}"
+                    style-hover="background:#f2f3f2;">
+                    <sc-if value="{{ mediaIsImg }}" hint-placeholder-val="{{ false }}">
+                      <div ref="{{ mediaImgRef }}" style="width:100%;"></div>
+                    </sc-if>
+                    <sc-if value="{{ mediaIsVid }}" hint-placeholder-val="{{ false }}">
+                      <div ref="{{ mediaVidRef }}" style="width:100%;background:#1c1c1b;"></div>
+                    </sc-if>
+                    <sc-if value="{{ mediaEmpty }}" hint-placeholder-val="{{ true }}">
+                      <div style="padding:40px 15px;text-align:center;">
+                        <p
+                          style="margin:0;font-size:15.5px;font-weight:400;line-height:1.55;letter-spacing:0;color:#4c4d4a;">
+                          Upload an image or video of your exhibit.</p>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <input ref="{{ mediaInputRef }}" type="file" accept="image/*,video/*" onChange="{{ mediaFile }}"
+                    style="display:none;" />
+
+                  <p style="margin:27px 0 10px;font-size:13px;font-weight:800;letter-spacing:0.16em;color:#1c1c1b;">
+                    TITLE OF YOUR EXHIBIT</p>
+                  <input value="{{ draftTitle }}" onChange="{{ setDraftTitle }}"
+                    placeholder="Give your exhibit a title." style="{{ exTitleStyle }}" />
+
+                  <p style="margin:27px 0 10px;font-size:13px;font-weight:800;letter-spacing:0.16em;color:#1c1c1b;">
+                    LABEL</p>
+                  <textarea value="{{ draftBody }}" onChange="{{ setDraftBody }}"
+                    placeholder="Introduce your exhibit in your own words, in any language or form." rows="4"
+                    style="{{ labelBodyStyle }}"></textarea>
+
+                  <p style="margin:27px 0 10px;font-size:13px;font-weight:800;letter-spacing:0.16em;color:#1c1c1b;">
+                    CURATOR</p>
+                  <div style="display:flex;gap:8px;align-items:stretch;">
+                    <input value="{{ draftAuthor }}" onChange="{{ setDraftAuthor }}" disabled="{{ draftAnon }}"
+                      placeholder="{{ curatorPh }}" style="{{ authorStyle }}" />
+                    <button onClick="{{ toggleAnon }}" style="{{ anonStyle }}">ANONYMOUS</button>
+                  </div>
+
+                  <sc-if value="{{ formErrOn }}" hint-placeholder-val="{{ false }}">
+                    <p style="margin:20px 0 0;font-size:14px;font-weight:700;color:#b3261e;">Please complete all
+                      required fields before publishing.</p>
+                  </sc-if>
+                  <div style="display:flex;gap:12px;margin-top:34px;border-top:1px solid #e2e4e3;padding-top:22px;">
+                    <button onClick="{{ submitDraft }}" style="{{ submitStyle }}">ADD TO GUIDE</button>
+                    <button onClick="{{ cancelDraft }}"
+                      style="flex:none;background:none;border:1px solid #1c1c1b;color:#1c1c1b;padding:{{ cancelPad }};font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.12em;border-radius:0;cursor:pointer;transition:background 160ms;"
+                      style-hover="background:#f2f3f2;">CANCEL</button>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+
+          <!-- ── IMAGE LIGHTBOX: read-only enlarged view ─────────── -->
+          <sc-if value="{{ lightboxOn }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Image Lightbox" onClick="{{ lightboxClose }}"
+              style="position:fixed;inset:0;z-index:90;background:rgba(20,20,19,0.88);display:flex;align-items:center;justify-content:center;padding:28px;box-sizing:border-box;">
+              <div ref="{{ lightboxImgRef }}" onClick="{{ stopClick }}"
+                style="max-width:100%;max-height:100%;display:flex;align-items:center;justify-content:center;"></div>
+              <button onClick="{{ lightboxClose }}" aria-label="Close image"
+                style="position:fixed;top:0;right:0;background:#1c1c1b;color:#ffffff;border:none;padding:14px 18px;font-family:inherit;font-size:16px;line-height:1;font-weight:700;cursor:pointer;"
+                style-hover="opacity:0.8;">×</button>
+            </div>
+          </sc-if>
+
+          <!-- ── CONFIRM PUBLISH: shown before a label is added ─────────── -->
+          <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Confirm Publish Modal" onClick="{{ confirmBack }}"
+              style="position:{{ overlayPos }};inset:0;z-index:58;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;">
+              <div onClick="{{ stopClick }}"
+                style="width:400px;max-width:{{ modalMaxW }};background:#ffffff;border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:28px 30px 30px;animation:settle 260ms ease both;">
+                <div style="border-bottom:3px solid #1c1c1b;padding-bottom:12px;">
+                  <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:0.18em;color:#1c1c1b;">BEFORE YOU
+                    PUBLISH</p>
+                </div>
+                <p style="margin:18px 0 0;font-size:13.5px;line-height:1.65;color:#1c1c1b;">Your exhibit and label may
+                  be published in this guide and used for project documentation, promotion, social media, or printed
+                  materials.</p>
+                <p style="margin:12px 0 0;font-size:13.5px;line-height:1.65;color:#3a3a38;">After submitting, changes
+                  may require contacting us. Please review before confirming.</p>
+                <div style="display:flex;gap:10px;margin-top:26px;border-top:1px solid #e2e4e3;padding-top:18px;">
+                  <button onClick="{{ confirmBack }}"
+                    style="flex:none;background:none;border:1px solid #1c1c1b;color:#1c1c1b;padding:{{ cancelPad }};font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0.1em;border-radius:0;cursor:pointer;transition:background 160ms;"
+                    style-hover="background:#f2f3f2;">GO BACK</button>
+                  <button onClick="{{ confirmPublish }}"
+                    style="flex:1;background:#1c1c1b;color:#ffffff;border:1px solid #1c1c1b;padding:{{ cancelPad }};font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0.14em;border-radius:0;cursor:pointer;transition:opacity 160ms;"
+                    style-hover="opacity:0.85;">CONFIRM &amp; PUBLISH</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ── GALLERY VIEW: enlarged label ─────────── -->
+          <sc-if value="{{ galleryOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Label Gallery View" onClick="{{ closeGallery }}"
+              style="position:{{ overlayPos }};inset:0;z-index:60;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;">
+              <div onClick="{{ stopClick }}" class="guide-scroll"
+                style="width:500px;max-width:{{ galMaxW }};max-height:85%;overflow-y:auto;background:#ffffff;border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:32px 34px 32px;animation:settle 260ms ease both;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 14px;">
+                  <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.22em;color:{{ accent }};">EXHIBIT
+                    {{ gal.num }}</p>
+                  <button onClick="{{ closeGallery }}"
+                    style="background:none;border:none;padding:2px;font-family:inherit;font-size:18px;line-height:1;color:#8a8a86;cursor:pointer;"
+                    style-hover="color:#1c1c1b;">×</button>
+                </div>
+                <sc-if value="{{ galIsImg }}" hint-placeholder-val="{{ false }}">
+                  <div ref="{{ galImgRef }}" style="width:100%;margin:0 0 20px;"></div>
+                </sc-if>
+                <sc-if value="{{ galIsVid }}" hint-placeholder-val="{{ false }}">
+                  <div ref="{{ galVidRef }}" style="width:100%;margin:0 0 20px;background:#1c1c1b;"></div>
+                </sc-if>
+                <sc-if value="{{ galSlotOn }}" hint-placeholder-val="{{ true }}">
+                  <div onClick="{{ galPhClick }}" style="{{ galPhStyle }}"></div>
+                </sc-if>
+                <h1
+                  style="margin:0 0 20px;font-size:32px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;color:#1c1c1b;">
+                  {{ gal.title }}</h1>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.7;color:#1c1c1b;">{{ gal.body }}</p>
+                <dl
+                  style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 24px;font-size:14px;border-top:3px solid #1c1c1b;padding-top:14px;color:#1c1c1b;">
+                  <dt style="font-size:9.5px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;padding-top:2px;">
+                    CURATOR</dt>
+                  <dd style="margin:0;">{{ gal.author }}</dd>
+                  <dt style="font-size:9.5px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;padding-top:2px;">DATE
+                  </dt>
+                  <dd style="margin:0;">{{ gal.date }}</dd>
+                  <dt style="font-size:9.5px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;padding-top:2px;">
+                    LOCATION</dt>
+                  <dd style="margin:0;">{{ gal.place }} · {{ gal.coordText }}</dd>
+                </dl>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- flat turn-over control -->
+    <button onClick="{{ flipSide }}" aria-label="Flip the guide over"
+      style="{{ flipPos }}z-index:9999;background:#1c1c1b;color:#ffffff;border:none;padding:{{ flipPad }};margin:0;cursor:pointer;font-family:inherit;font-size:{{ flipFont }};font-weight:700;letter-spacing:0.18em;transition:background 180ms;"
+      style-hover="background:{{ theme }};">{{ cornerText }}</button>
+
+  </x-dc>
+  <script type="text/x-dc" data-dc-script
+    data-props="{&quot;mapStyle&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;grayscale&quot;, &quot;paper&quot;], &quot;default&quot;: &quot;grayscale&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Map&quot;}, &quot;buildings3d&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Map&quot;}}">
+class Component extends DCLogic {
+  state = { selected: null, draft: null, userLabels: [], side: "front" };
+
+  componentDidMount() {
+    this._markers = [];
+    this._initTries = 0;
+    this._onVw = () => this.setState({ vw: window.innerWidth });
+    window.addEventListener("resize", this._onVw);
+    this._enterTimer = setTimeout(() => this.setState({ entered: true }, () => { if (this._map) this._map.resize(); }), 1000);
+    this._onLbKey = (e) => { if (e.key === "Escape" && this.state.lightbox) this.setState({ lightbox: null }); };
+    window.addEventListener("keydown", this._onLbKey);
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem("labelization-moore-homestead-playground-user-labels-v3") || "[]"); } catch (e) {}
+    saved.forEach(en => { if (en.media && /^blob:/.test(en.media.url || "")) en.media.url = ""; });
+    this.setState({ userLabels: saved }, () => import("./parks-geo.js").then(m => { this._geo = m.parksConfig.mooreHomesteadPlayground; this._initMap(); }));
+  }
+
+  _all() {
+    return this._data().concat(this.state.userLabels || []);
+  }
+
+  componentDidMount2() {}
+
+  componentWillUnmount() {
+    if (this._onLbKey) window.removeEventListener("keydown", this._onLbKey);
+    if (this._ro) this._ro.disconnect();
+    if (this._onWinResize) window.removeEventListener("resize", this._onWinResize);
+    if (this._onVw) window.removeEventListener("resize", this._onVw);
+    clearTimeout(this._retry);
+    clearTimeout(this._flipTimer);
+    if (this._map) { this._map.remove(); this._map = null; }
+  }
+
+  _theme() { return "#e8c35a"; }
+
+  _styleUrl() {
+    const s = this.props.mapStyle ?? "grayscale";
+    return s === "paper"
+      ? "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+      : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+  }
+
+  _satStyle() {
+    return {
+      version: 8,
+      sources: { sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" } },
+      layers: [{ id: "sat-base", type: "raster", source: "sat" }],
+    };
+  }
+
+  _locateMe() {
+    if (!navigator.geolocation) { this.setState({ locate: "err-unable" }); return; }
+    this.setState({ locate: "busy" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.setState({ locate: "on" });
+        this._placeUserMarker([pos.coords.longitude, pos.coords.latitude]);
+      },
+      (err) => this.setState({ locate: err && err.code === 1 ? "err-denied" : "err-unable" }),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }
+
+  _placeUserMarker(c) {
+    if (!this._map || !window.maplibregl) return;
+    if (!this._userMarker) {
+      const el = document.createElement("div");
+      el.style.cssText = "position:relative;width:22px;height:22px;";
+      el.innerHTML = '<div style="position:absolute;inset:0;border-radius:50%;background:#1c1c1b;border:3px solid #ffffff;box-sizing:border-box;box-shadow:0 0 0 2px ' + this._theme() + ',0 2px 8px rgba(0,0,0,0.35);"></div>' +
+        '<div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);background:' + this._theme() + ';color:#1c1c1b;padding:3px 7px;font:700 8.5px \'Helvetica Neue\',Helvetica,Arial,sans-serif;letter-spacing:0.12em;white-space:nowrap;">YOU ARE HERE</div>';
+      this._userMarker = new maplibregl.Marker({ element: el, anchor: "center" });
+    }
+    this._userMarker.setLngLat(c).addTo(this._map);
+    // outside the park's pan limit: widen maxBounds so the map can reach the pin
+    try {
+      const b = this._map.getMaxBounds();
+      if (b && !(c[0] >= b.getWest() && c[0] <= b.getEast() && c[1] >= b.getSouth() && c[1] <= b.getNorth())) {
+        this._map.setMaxBounds([
+          [Math.min(b.getWest(), c[0] - 0.005), Math.min(b.getSouth(), c[1] - 0.005)],
+          [Math.max(b.getEast(), c[0] + 0.005), Math.max(b.getNorth(), c[1] + 0.005)],
+        ]);
+      }
+    } catch (e) {}
+    this._map.flyTo({ center: c, zoom: Math.max(this._map.getZoom(), 15), duration: 900 });
+  }
+
+  _backToPark() {
+    if (!this._map || !this._initialCamera) return;
+    this.setState({ locate: null });
+    if (this._userMarker) {
+      this._userMarker.remove();
+      this._userMarker = null;
+    }
+    if (this._geo && this._geo.maxBounds) {
+      this._map.setMaxBounds(this._geo.maxBounds);
+    }
+    this._map.stop();
+    this._map.flyTo({
+      center: this._initialCamera.center,
+      zoom: this._initialCamera.zoom,
+      bearing: this._initialCamera.bearing,
+      pitch: this._initialCamera.pitch,
+      duration: 1200,
+      essential: true
+    });
+  }
+
+  _initMap() {
+    if (!window.maplibregl || !this._el || !this._el.offsetWidth || !this._el.offsetHeight || this._el.offsetHeight > window.innerHeight * 2 || this._el.offsetWidth > window.innerWidth * 2) {
+      if (this._initTries++ < 200) this._retry = setTimeout(() => this._initMap(), 150);
+      return;
+    }
+    if (this._map) return;
+    const geo = this._geo;
+    if (!geo) return;
+    const map = new maplibregl.Map({
+      container: this._el,
+      style: this._styleUrl(),
+      bounds: geo.bounds, // fit to the real park boundary
+      fitBoundsOptions: { padding: 17, bearing: 29 },
+      bearing: 29,
+      antialias: true,
+      maxBounds: geo.maxBounds, // keep panning near the park
+      minZoom: 14.5,
+      maxZoom: 19,
+      attributionControl: false,
+    });
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.on("style.load", () => { this._applyTheme(map); this._add3d(map); });
+    map.on("click", (e) => this._startDraft([e.lngLat.lng, e.lngLat.lat]));
+    this._map = map;
+    if (window.ResizeObserver) {
+      this._ro = new ResizeObserver(() => { if (this._map) this._map.resize(); });
+      this._ro.observe(this._el);
+    }
+    this._onWinResize = () => { if (this._map) this._map.resize(); };
+    window.addEventListener("resize", this._onWinResize);
+    map.once("load", () => {
+      this._initialCamera = {
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+        bearing: map.getBearing(),
+        pitch: map.getPitch()
+      };
+    });
+    this._makeMarkers();
+  }
+
+  _startDraft(coord) {
+    const draft = Object.assign({}, this.state.draft || { subject: "", title: "", body: "", author: "", anon: false, media: "none",
+      step: window.innerWidth <= 768 ? "capture" : "form" }, { coord });
+    this.setState({ draft, selected: null }, () => this._styleMarkers());
+    if (!this._draftMarker && window.maplibregl && this._map) {
+      const el = document.createElement("div");
+      el.style.cssText = "position:relative;width:30px;height:30px;cursor:grab;";
+      el.innerHTML =
+        '<div style="position:absolute;inset:0;border-radius:50%;background:#1c1c1b;border:2px solid #fff;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>' +
+        '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 16px \'Helvetica Neue\',Helvetica,Arial,sans-serif;color:#fff;pointer-events:none;">+</span>';
+      this._draftMarker = new maplibregl.Marker({ element: el, anchor: "center", draggable: true });
+      this._draftMarker.setLngLat(coord).addTo(this._map);
+      this._draftMarker.on("dragend", () => {
+        const p = this._draftMarker.getLngLat();
+        const d = Object.assign({}, this.state.draft, { coord: [p.lng, p.lat] });
+        this.setState({ draft: d });
+      });
+    } else if (this._draftMarker) {
+      this._draftMarker.setLngLat(coord);
+    }
+  }
+
+  _cancelDraft() {
+    if (this._draftMarker) { this._draftMarker.remove(); this._draftMarker = null; }
+    this.setState({ draft: null, formErr: false });
+  }
+
+  _submitDraft() {
+    const d = this.state.draft;
+    if (!d || !(d.title || "").trim() || !(d.body || "").trim()) return;
+    const entry = {
+      title: d.title.trim(),
+      labelTitle: d.title.trim(),
+      place: "Visitor-marked location",
+      coord: d.coord, // recorded automatically from the map click that opened the form
+      author: d.anon ? "Anonymous" : ((d.author || "").trim() || "Anonymous"),
+      category: "Visitor label",
+      media: d.media || "none",
+      date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+      body: d.body.trim(),
+      // preview object URL: lives for this session; real storage comes with the backend
+      media: d.mediaUrl ? { type: d.media === "video" ? "video" : "image", url: d.mediaUrl } : null,
+    };
+    const userLabels = (this.state.userLabels || []).concat([entry]);
+    try { localStorage.setItem("labelization-moore-homestead-playground-user-labels-v3", JSON.stringify(userLabels)); } catch (e) {}
+    if (this._draftMarker) { this._draftMarker.remove(); this._draftMarker = null; }
+    this.setState({ userLabels, draft: null }, () => {
+      this._makeMarkers();
+      this._select(userLabels.length - 1 + this._data().length);
+    });
+  }
+
+  // Theme hue → map tints, so each guide's map adapts to its color automatically
+  _hue() {
+    const hex = this._theme().replace("#", "");
+    const r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return Math.round(h);
+  }
+
+  _applyTheme(map) {
+    const h = this._hue();
+    const c = {
+      bg: "hsl(" + h + ",10%,96%)",
+      water: "hsl(" + h + ",30%,84%)",
+      waterLine: "hsl(" + h + ",26%,77%)",
+      green: "hsl(" + h + ",22%,89%)",
+      road: "#ffffff",
+      path: "hsl(" + h + ",14%,82%)",
+      building: "hsl(" + h + ",8%,91%)",
+      text: "hsl(" + h + ",8%,38%)",
+      halo: "hsl(" + h + ",16%,97%)",
+      boundary: "hsl(" + h + ",16%,76%)",
+    };
+    const layers = (map.getStyle() || {}).layers || [];
+    layers.forEach((ly) => {
+      const id = ly.id.toLowerCase();
+      try {
+        if (/poi|transit|aeroway|housenum|shield|oneway|ferry|airport/.test(id)) {
+          map.setLayoutProperty(ly.id, "visibility", "none"); return;
+        }
+        if (/roadname|road_label|road-name/.test(id) && /minor|service|path|tertiary/.test(id)) {
+          map.setLayoutProperty(ly.id, "visibility", "none"); return;
+        }
+        if (ly.type === "background") { map.setPaintProperty(ly.id, "background-color", c.bg); return; }
+        if (ly.type === "fill" && /water|ocean|river/.test(id)) { map.setPaintProperty(ly.id, "fill-color", c.water); return; }
+        if (ly.type === "line" && /water/.test(id)) { map.setPaintProperty(ly.id, "line-color", c.waterLine); return; }
+        if (ly.type === "fill" && /park|green|wood|grass|cemetery|golf|landcover|landuse|pitch|garden|natur/.test(id)) {
+          map.setPaintProperty(ly.id, "fill-color", c.green); return;
+        }
+        if (ly.type === "fill" && /building/.test(id)) { map.setPaintProperty(ly.id, "fill-color", c.building); return; }
+        if (ly.type === "line" && /boundary|admin/.test(id)) { map.setPaintProperty(ly.id, "line-color", c.boundary); return; }
+        if (ly.type === "line" && /path|pedestrian|footway|track|cycle/.test(id)) { map.setPaintProperty(ly.id, "line-color", c.path); return; }
+        if (ly.type === "line" && /road|street|highway|motorway|bridge|tunnel/.test(id)) {
+          if (/casing|outline/.test(id)) map.setPaintProperty(ly.id, "line-color", "hsl(" + h + ",8%,88%)");
+          else map.setPaintProperty(ly.id, "line-color", c.road);
+          return;
+        }
+        if (ly.type === "symbol") {
+          map.setPaintProperty(ly.id, "text-color", c.text);
+          map.setPaintProperty(ly.id, "text-halo-color", c.halo);
+        }
+      } catch (e) { /* property not applicable on this layer */ }
+    });
+  }
+
+  _addParkOutline(map) {
+    const geo = this._geo; if (!geo) return;
+    const theme = this._theme();
+    try {
+      if (!map.getSource("park-outline")) {
+        map.addSource("park-outline", { type: "geojson", data: { type: "Feature", geometry: geo.boundaryGeoJSON } });
+      }
+      if (!map.getLayer("park-fill")) {
+        map.addLayer({ id: "park-fill", type: "fill", source: "park-outline", paint: { "fill-color": theme, "fill-opacity": 0.08 } });
+      }
+      if (!map.getLayer("park-line")) {
+        map.addLayer({ id: "park-line", type: "line", source: "park-outline", paint: { "line-color": theme, "line-width": 2 } });
+      }
+    } catch (e) { /* source may already exist during style swap */ }
+  }
+
+  _add3d(map) {
+    if (!(this.props.buildings3d ?? false)) return;
+    try {
+      map.addLayer({
+        id: "labelization-3d-buildings",
+        source: "carto",
+        "source-layer": "building",
+        type: "fill-extrusion",
+        minzoom: 14,
+        paint: {
+          "fill-extrusion-color": "hsl(" + this._hue() + ",8%,87%)",
+          "fill-extrusion-height": ["coalesce", ["get", "render_height"], 12],
+          "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+          "fill-extrusion-opacity": 0.75,
+        },
+      });
+    } catch (e) { /* style variant without that source-layer */ }
+  }
+
+  _data() {
+    // seeds disabled — every guide starts with an empty map; user labels only
+    return [];
+  }
+
+  _allSeed() {
+    return [
+      { title: "A Wall That Answers Back", place: "Handball Courts", coord: [-73.8827, 40.7421], author: "D. Ramos", category: "Structure", date: "May 24, 2026", labelTitle: "The Sound of Practice", body: "The concrete wall has returned every serve since the courts were poured. The label transcribes its only sound: a rubber ball, twice a second, all Saturday long." },
+      { title: "Water on a Schedule", place: "Spray Shower Plaza", coord: [-73.8822, 40.7424], author: "L. Chen", category: "Water", date: "May 24, 2026", labelTitle: "An Ocean, June Through September", body: "The sprinklers run four months a year. The label lists everything they stand in for: an ocean, an open hydrant, a grandmother's garden hose." },
+      { title: "The Homestead That Isn't Here", place: "Broadway Corner", coord: [-73.8818, 40.742], author: "Anonymous", category: "Ground", date: "May 25, 2026", labelTitle: "An Exhibit About Absence", body: "Nothing remains of the Moore family farmhouse except the park's name. This label marks where the front porch is believed to have faced Broadway." },
+      { title: "A Tournament Without a Trophy", place: "Game Tables", coord: [-73.8825, 40.7419], author: "E. Morales", category: "Encounter", date: "May 25, 2026", labelTitle: "Winner Stays, Everyone Coaches", body: "Xiangqi most mornings, dominoes after lunch. The label records the standing house rule, unchanged for decades: winner stays, everyone coaches." },
+    ];
+  }
+
+  _makeMarkers() {
+    const map = this._map;
+    if (!map || !window.maplibregl) return;
+    this._markers.forEach(m => m.remove());
+    this._markers = this._all().map((ex, i) => {
+      // Outer el: positioned ONLY by MapLibre (never touch its transform).
+      // Inner wrapper: our own scaling so the point never moves.
+      const el = document.createElement("div");
+      const pz = window.innerWidth <= 768 ? 32 : 26;
+      const ph = Math.round(pz * 1.21);
+      el.style.cssText = "width:" + pz + "px;height:" + ph + "px;cursor:pointer;";
+      el.innerHTML =
+        '<div data-wrap style="position:relative;width:' + pz + 'px;height:' + ph + 'px;transform-origin:50% 100%;transition:transform 180ms ease;">' +
+        '<div data-pin style="position:absolute;left:0;top:0;width:' + pz + 'px;height:' + pz + 'px;box-sizing:border-box;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:' + this._theme() + ';border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);transition:background 180ms ease;"></div>' +
+        '<span data-num style="position:absolute;left:0;top:0;width:' + pz + 'px;height:' + pz + 'px;display:flex;align-items:center;justify-content:center;font:700 ' + (pz > 26 ? 12 : 10) + 'px \'Helvetica Neue\',Helvetica,Arial,sans-serif;color:#1c1c1b;pointer-events:none;">' + String(i + 1).padStart(2, "0") + '</span>' +
+        '</div>';
+      el.addEventListener("click", (e) => { e.stopPropagation(); this._select(i); });
+      const m = new maplibregl.Marker({ element: el, anchor: "bottom" });
+      m.setLngLat(ex.coord).addTo(map);
+      return m;
+    });
+    this._styleMarkers();
+  }
+
+  _styleMarkers() {
+    (this._markers || []).forEach((m, i) => {
+      const el = m.getElement();
+      const on = this.state.selected === i;
+      const pin = el.querySelector("[data-pin]");
+      const wrap = el.querySelector("[data-wrap]");
+      const num = el.querySelector("[data-num]");
+      if (pin) { pin.style.background = on ? "#1c1c1b" : this._theme(); pin.style.borderColor = on ? this._theme() : "#fff"; }
+      if (num) num.style.color = on ? "#ffffff" : "#1c1c1b";
+      if (wrap) wrap.style.transform = on ? "scale(1.3)" : "scale(1)";
+      el.style.zIndex = on ? "5" : "1";
+    });
+  }
+
+  _select(i) {
+    // mobile: open the label card directly — the content, not the index row
+    if (window.innerWidth <= 768) {
+      this.setState({ selected: i, gallery: i }, () => this._styleMarkers());
+      const ex = this._all()[i];
+      if (this._map) this._map.flyTo({ center: ex.coord, zoom: Math.max(this._map.getZoom(), 15), duration: 900 });
+      return;
+    }
+    const next = this.state.selected === i ? null : i;
+    this.setState({ selected: next }, () => {
+      this._styleMarkers();
+      if (next != null && this._scrollEl && this._rowEls && this._rowEls[next]) {
+        const row = this._rowEls[next];
+        this._scrollEl.scrollTo({ top: Math.max(0, row.offsetTop - 64), behavior: "smooth" });
+      }
+    });
+    if (next != null) {
+      const ex = this._all()[i];
+      if (this._map) this._map.flyTo({ center: ex.coord, zoom: Math.max(this._map.getZoom(), 15), duration: 900 });
+      this._showLabelCard(i);
+    } else {
+      this._closeLabelCard();
+    }
+  }
+
+  _closeLabelCard() {
+    if (this._popup) { this._ignoreClose = true; this._popup.remove(); this._popup = null; this._ignoreClose = false; }
+  }
+
+  _showLabelCard(i) {
+    if (!this._map || !window.maplibregl) return;
+    this._closeLabelCard();
+    clearTimeout(this._lbT);
+    this._lbT = setTimeout(() => {
+      document.querySelectorAll('[data-slot-lb]').forEach(node => {
+        if (node.dataset.lbBound) return;
+        node.dataset.lbBound = "1";
+        node.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const host = node.parentNode.querySelector("image-slot");
+          const im = host && host.shadowRoot && host.shadowRoot.querySelector(".frame img");
+          if (im && im.getAttribute("src")) this.setState({ lightbox: { url: im.src, type: "image" } });
+        });
+      });
+      document.querySelectorAll('[data-lightbox]').forEach(node => {
+        if (node.dataset.lbBound) return;
+        node.dataset.lbBound = "1";
+        node.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (node.dataset.lightbox === "color") this.setState({ lightbox: { type: "color", color: node.style.background || node.style.backgroundColor } });
+          else this.setState({ lightbox: { url: node.src, type: node.dataset.lightbox === "video" ? "video" : "image" } });
+        });
+      });
+    }, 80);
+    const ex = this._all()[i];
+    const num = String(i + 1).padStart(2, "0");
+    const theme = this._theme(); const accent = "#a8862f";
+    const el = document.createElement("div");
+    el.style.cssText = "width:min(320px, 84vw);padding:18px 18px 16px;box-sizing:border-box;color:#1c1c1b;cursor:pointer;";
+    el.title = "Open label";
+    el.addEventListener("click", () => this.setState({ gallery: i }));
+    el.innerHTML =
+      '<p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:0.22em;color:' + accent + ';">EXHIBIT ' + num + '</p>' +
+      '<div style="position:relative;width:100%;' + (ex.media && ex.media.url ? '' : 'height:130px;') + 'margin:0 0 11px;">' + (ex.media && ex.media.url
+        ? (ex.media.type === "video"
+          ? '<video src="' + ex.media.url + '" muted autoplay loop playsinline data-lightbox="video" style="width:100%;height:auto;display:block;background:#1c1c1b;cursor:zoom-in;"></video>'
+          : '<img src="' + ex.media.url + '" alt="" data-lightbox="1" style="width:100%;height:auto;display:block;cursor:zoom-in;">')
+        : (ex.media && ex.media.type === "video"
+          ? '<div style="width:100%;height:130px;background:#1c1c1b;display:flex;align-items:center;justify-content:center;"><span style="font-size:9px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;">VIDEO PREVIEW EXPIRED</span></div>'
+          : '<div data-lightbox="color" style="width:100%;height:130px;cursor:zoom-in;background:' + "hsl(" + ((i * 137.5 + 40) % 360) + ",38%,79%)" + ';"></div>')) + '</div>' +
+      '<h3 style="margin:0 0 10px;font-size:18px;line-height:1.22;font-weight:700;letter-spacing:-0.01em;">' + ex.title + '</h3>' +
+      '<p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:#3a3a38;max-height:140px;overflow-y:auto;">' + ex.body + '</p>' +
+      '<p style="margin:0;padding-top:9px;border-top:1px solid #d9dbda;font-size:10px;font-weight:700;letter-spacing:0.1em;color:#8a8a86;">' + (ex.author || "").toUpperCase() + ' · ' + (ex.date || "").toUpperCase() + '</p>';
+    this._popup = new maplibregl.Popup({
+      className: "label-popup",
+      closeButton: true,
+      closeOnClick: false,
+      anchor: "bottom",
+      offset: [0, window.innerWidth <= 768 ? -54 : -46],
+      maxWidth: "none",
+    }).setLngLat(ex.coord).setDOMContent(el).addTo(this._map);
+    this._popup.on("close", () => {
+      if (this._ignoreClose) return;
+      this._popup = null;
+      this.setState({ selected: null }, () => this._styleMarkers());
+    });
+  }
+
+  componentDidUpdate(prevProps) {
+    if ((prevProps.mapStyle ?? "grayscale") !== (this.props.mapStyle ?? "grayscale") && this._map && this.state.mapView !== "sat") {
+      this._map.setStyle(this._styleUrl());
+    }
+    this._styleMarkers();
+  }
+
+  renderVals() {
+    const vwR = this.state.vw || (typeof window !== "undefined" ? window.innerWidth : 1280);
+    const mobile = vwR <= 768;
+    const theme = this._theme(); const accent = "#a8862f";
+    const themeLight = "#f2d98a";
+    const data = this._all();
+
+    this._rowEls = this._rowEls || {};
+    const exhibits = data.map((ex, i) => {
+      const on = this.state.selected === i;
+      return {
+        num: String(i + 1).padStart(2, "0"),
+        title: ex.title,
+        place: ex.place,
+        isOpen: on,
+        chevron: on ? "−" : "+",
+        chevColor: on ? "#1c1c1b" : "#9a9a96",
+        numColor: on ? "#1c1c1b" : accent,
+        body: ex.body, author: ex.author, category: ex.category, date: ex.date,
+        labelTitle: ex.labelTitle,
+        slotId: "moore-homestead-playground-exhibit-" + String(i + 1).padStart(2, "0"),
+        coordText: ex.coord[1].toFixed(4) + "° N, " + Math.abs(ex.coord[0]).toFixed(4) + "° W",
+        rowStyle: "display:flex;gap:12px;align-items:baseline;padding:12px 12px;margin:0 -12px;border:none;font:inherit;cursor:pointer;transition:background 180ms;text-align:left;" +
+          (on ? "background:" + theme + ";color:#1c1c1b;" : "background:none;color:#1c1c1b;"),
+        select: () => this._select(i),
+        rowRef: (el) => { this._rowEls[i] = el; },
+      };
+    });
+
+    const d = this.state.draft;
+    const reqMedia = !!(d && d.mediaUrl);
+    const reqTitle = !!(d && (d.title || "").trim());
+    const reqBody = !!(d && (d.body || "").trim());
+    const reqAuthor = !!(d && (d.anon || (d.author || "").trim()));
+    const formComplete = reqMedia && reqTitle && reqBody && reqAuthor;
+    const showErr = !!this.state.formErr;
+    const errB = (ok) => (ok || !showErr) ? "#1c1c1b" : "#b3261e";
+    const setD = (key) => (e) => {
+      const v = e.target.value;
+      this.setState(s => ({ draft: Object.assign({}, s.draft, { [key]: v }) }));
+    };
+    const setMedia = (m) => () => this.setState(s => ({ draft: Object.assign({}, s.draft, { media: m }) }));
+    const mediaBtn = (m) => {
+      const on = d && (d.media || "none") === m;
+      return "flex:1;padding:8px 0;font-family:inherit;font-size:10.5px;font-weight:700;letter-spacing:0.08em;border-radius:0;cursor:pointer;transition:all 150ms;border:1px solid " +
+        (on ? "#1c1c1b;background:#1c1c1b;color:#ffffff;" : "#d9dbda;background:#ffffff;color:#a3a5a4;");
+    };
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const mediaHints = {
+      none: "",
+      photo: "Drop a photo here, or click to browse (prototype)",
+      video: "Drop a short video here, or click to browse (prototype)",
+      sound: "Record or drop a sound file here (prototype)",
+    };
+
+    const cards = data.map((ex, i) => ({
+        openGallery: () => this.setState({ gallery: i }),
+        phStyle: ex.media && ex.media.url
+          ? "width:100%;cursor:zoom-in;" + (ex.media.type === "video" ? "background:#1c1c1b;" : "")
+          : ex.media && ex.media.type === "video"
+            ? "width:100%;height:96px;background:#1c1c1b;display:flex;align-items:center;justify-content:center;"
+            : "width:100%;height:128px;cursor:zoom-in;background:hsl(" + ((i * 137.5 + 40) % 360) + ",38%,79%);",
+        phRef: (el) => {
+          if (!el || !ex.media) return;
+          if (!ex.media.url) {
+            if (!el.firstChild) el.innerHTML = '<span style="font-size:9px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;">VIDEO PREVIEW EXPIRED</span>';
+            return;
+          }
+          if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === ex.media.url) return;
+          el.innerHTML = "";
+          const node = document.createElement(ex.media.type === "video" ? "video" : "img");
+          node.src = ex.media.url; node.dataset.src = ex.media.url;
+          if (ex.media.type === "video") { node.muted = true; node.autoplay = true; node.loop = true; node.playsInline = true; }
+          else node.alt = "";
+          node.style.cssText = "width:100%;height:auto;display:block;pointer-events:none;";
+          el.appendChild(node);
+        },
+        phClick: (ev) => {
+          ev.stopPropagation();
+          if (ex.media && ex.media.url) this.setState({ lightbox: { url: ex.media.url, type: ex.media.type } });
+          else if (!ex.media) this.setState({ lightbox: { type: "color", color: "hsl(" + ((i * 137.5 + 40) % 360) + ",38%,79%)" } });
+        },
+        num: "NO. " + String(i + 1).padStart(2, "0"),
+        title: ex.title,
+        labelTitle: ex.labelTitle,
+        body: ex.body,
+        metaPlace: (ex.place || "").toUpperCase(),
+        metaLine: (ex.author || "").toUpperCase() + " · " + (ex.date || "").toUpperCase(),
+        slotId: "moore-homestead-playground-exhibit-" + String(i + 1).padStart(2, "0"),
+    }));
+
+    return {
+      theme, themeLight, accent,
+      exhibits,
+      isMobile: mobile,
+      rootStyle: mobile
+        ? "min-height:100vh;display:flex;background:#ffffff;box-sizing:border-box;"
+        : "height:100vh;display:flex;background:#ffffff;overflow:hidden;box-sizing:border-box;",
+      asideStyle: mobile
+        ? "display:contents;"
+        : "width:420px;flex:none;display:flex;flex-direction:column;background:#ffffff;position:relative;z-index:10;border-right:1px solid #1c1c1b;",
+      scrollBodyStyle: mobile
+        ? "order:2;position:relative;z-index:6;padding:22px 16px 28px;background:#ffffff;"
+        : "flex:1;overflow-y:auto;position:relative;z-index:6;padding:26px 28px 30px;",
+      mapWrapStyle: mobile
+        ? "order:1;flex:none;position:relative;height:58vh;min-height:340px;background:#eef0ef;border-bottom:1px solid #1c1c1b;"
+        : "flex:1;position:relative;background:#eef0ef;",
+      titleSize: mobile ? "30px" : "38px",
+      archPad: mobile ? "12px 16px" : "9px 14px",
+      backCols: mobile ? "1fr" : "repeat(3,1fr)",
+      overlayPos: mobile ? "fixed" : "absolute",
+      modalPadLeft: mobile ? "0" : "420px",
+      modalMaxW: mobile ? "calc(100vw - 24px)" : "54%",
+      galMaxW: mobile ? "calc(100vw - 24px)" : "52%",
+      flipPad: mobile ? "12px 16px" : "14px 22px",
+      flipFont: mobile ? "10px" : "11px",
+      flipPos: "position:absolute;right:0;top:0;",
+      cancelPad: mobile ? "17px 22px" : "15px 22px",
+      locateMe: () => this._locateMe(),
+      backToPark: () => this._backToPark(),
+      locateStatusOn: !!this.state.locate,
+      locateStatusStyle: "margin:8px 0 0;font-size:11.5px;font-weight:700;letter-spacing:0.01em;line-height:1.45;color:" +
+        (this.state.locate === "err-denied" || this.state.locate === "err-unable" ? "#b3261e" : this.state.locate === "on" ? "#1c1c1b" : "#6e6f6c") + ";",
+      locateText: this.state.locate === "busy" ? "Locating…"
+        : this.state.locate === "err-denied" ? "Location permission was denied."
+        : this.state.locate === "err-unable" ? "Unable to find your location."
+        : this.state.locate === "on" ? "Location found — you are shown on the map."
+        : "Find my current location on the map.",
+      mapViewLabel: this.state.mapView === "sat" ? "GUIDE MAP" : "SATELLITE",
+      toggleMapView: () => {
+        const next = this.state.mapView === "sat" ? "guide" : "sat";
+        // setStyle keeps camera (center/zoom/bearing); markers + popups are DOM and persist
+        this.setState({ mapView: next }, () => { if (this._map) this._map.setStyle(next === "sat" ? this._satStyle() : this._styleUrl(), { diff: false }); });
+      },
+      satBtnStyle: mobile
+        ? "position:absolute;right:0;bottom:0;z-index:6;background:#ffffff;color:#1c1c1b;border:1px solid #1c1c1b;border-right:none;border-bottom:none;border-top:3px solid " + theme + ";padding:13px 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.16em;cursor:pointer;transition:background 180ms,color 180ms;"
+        : "position:absolute;left:0;bottom:0;z-index:6;background:#ffffff;color:#1c1c1b;border:none;border-top:1px solid #1c1c1b;border-right:1px solid #1c1c1b;padding:8px 14px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.16em;cursor:pointer;transition:background 180ms,color 180ms;",
+      coordStripStyle: mobile ? "position:absolute;bottom:0;left:0;z-index:4;pointer-events:none;background:#ffffff;color:#1c1c1b;border-top:1px solid #1c1c1b;border-right:1px solid #1c1c1b;padding:8px 14px;font-weight:700;font-size:10px;letter-spacing:0.16em;" : "display:none;",
+      draftOpen: !!d,
+      capOn: !!(d && d.step === "capture"),
+      formOn: !(d && d.step === "capture"),
+      capHasMedia: !!(d && d.mediaUrl),
+      capPick: () => { if (this._capInput) this._capInput.click(); },
+      capInputRef: (el) => { this._capInput = el; },
+      capContinue: () => this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { step: "form" }) } : null)),
+      curatorPh: mobile ? "Your name, nickname, or how you\u2019d like to be remembered." : "Credit yourself in the way you prefer.",
+      draftSubject: d ? d.subject : "",
+      draftTitle: d ? d.title : "",
+      draftBody: d ? d.body : "",
+      draftAuthor: d ? d.author : "",
+      draftAnon: d ? !!d.anon : false,
+      setDraftSubject: setD("subject"),
+      setDraftTitle: setD("title"),
+      setDraftBody: setD("body"),
+      setDraftAuthor: setD("author"),
+      toggleAnon: () => this.setState(s => ({ draft: Object.assign({}, s.draft, { anon: !s.draft.anon }) })),
+      authorStyle: "flex:1;box-sizing:border-box;padding:15px 15px;border:1px solid " +
+        (d && d.anon ? "#d9dbda;border-radius:0;font-family:inherit;font-size:15.5px;color:#1c1c1b;background:#f2f3f2;opacity:0.55;" : "#1c1c1b;border-radius:0;font-family:inherit;font-size:15.5px;color:#1c1c1b;background:#ffffff;") + (showErr && !reqAuthor ? "border-color:#b3261e;" : ""),
+      anonStyle: "flex:none;padding:0 20px;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.12em;border-radius:0;cursor:pointer;transition:all 150ms;border:1px solid " +
+        (d && d.anon ? "#1c1c1b;background:#1c1c1b;color:#ffffff;" : "#d9dbda;background:#ffffff;color:#6e6f6c;"),
+      mediaChosen: !!(d && d.media && d.media !== "none"),
+      mediaPick: () => { if (this._mediaInput) this._mediaInput.click(); },
+      mediaInputRef: (el) => { this._mediaInput = el; },
+      mediaFile: (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (file.type.indexOf("video") === 0) {
+          // videos: session-only preview (too heavy for localStorage)
+          const url = URL.createObjectURL(file);
+          this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "video", mediaUrl: url }) } : null));
+          return;
+        }
+        // images: downscale + re-encode to a data URL so they survive refresh
+        const rd = new FileReader();
+        rd.onload = () => {
+          const im = new Image();
+          im.onload = () => {
+            const sc = Math.min(1, 1000 / Math.max(im.width, im.height));
+            const cv = document.createElement("canvas");
+            cv.width = Math.max(1, Math.round(im.width * sc));
+            cv.height = Math.max(1, Math.round(im.height * sc));
+            cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+            let url;
+            try { url = cv.toDataURL("image/jpeg", 0.82); } catch (err) { url = rd.result; }
+            this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "photo", mediaUrl: url }) } : null));
+          };
+          im.src = rd.result;
+        };
+        rd.readAsDataURL(file);
+      },
+      mediaImgRef: (el) => {
+        if (!el || !d || !d.mediaUrl) return;
+        if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === d.mediaUrl) return;
+        el.innerHTML = "";
+        const im = document.createElement("img");
+        im.src = d.mediaUrl; im.dataset.src = d.mediaUrl; im.alt = "";
+        im.style.cssText = "width:100%;height:auto;display:block;";
+        el.appendChild(im);
+      },
+      mediaVidRef: (el) => {
+        if (!el || !d || !d.mediaUrl) return;
+        if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === d.mediaUrl) return;
+        el.innerHTML = "";
+        const v = document.createElement("video");
+        v.src = d.mediaUrl; v.dataset.src = d.mediaUrl;
+        v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
+        v.style.cssText = "width:100%;height:auto;display:block;";
+        el.appendChild(v);
+      },
+      mediaIsImg: !!(d && d.mediaUrl && d.media === "photo"),
+      mediaIsVid: !!(d && d.mediaUrl && d.media === "video"),
+      mediaEmpty: !(d && d.mediaUrl),
+      draftCoordText: d ? d.coord[1].toFixed(4) + "° N, " + Math.abs(d.coord[0]).toFixed(4) + "° W" : "",
+      draftDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+      submitDraft: () => {
+        if (formComplete) { this.setState({ confirmPub: true, formErr: false }); return; }
+        this.setState({ formErr: true, shakeOn: true });
+        clearTimeout(this._shakeT);
+        this._shakeT = setTimeout(() => this.setState({ shakeOn: false }), 460);
+      },
+      modalShakeClass: this.state.shakeOn ? "form-shake" : "",
+      formErrOn: showErr && !formComplete,
+      mediaFrameStyle: "border:1px solid " + errB(reqMedia) + ";cursor:pointer;background:#fafaf9;transition:background 160ms;",
+      exTitleStyle: "width:100%;box-sizing:border-box;padding:15px 15px;margin:0;border:1px solid " + errB(reqTitle) + ";border-radius:0;font-family:inherit;font-size:16px;font-weight:600;letter-spacing:0;color:#1c1c1b;background:#ffffff;",
+      labelBodyStyle: "width:100%;box-sizing:border-box;padding:15px 15px;margin:0;border:1px solid " + errB(reqBody) + ";border-radius:0;font-family:inherit;font-size:15.5px;line-height:1.65;color:#1c1c1b;background:#ffffff;resize:vertical;",
+      confirmOpen: !!this.state.confirmPub,
+      confirmBack: () => this.setState({ confirmPub: false }),
+      confirmPublish: () => { this.setState({ confirmPub: false }); this._submitDraft(); },
+      cancelDraft: () => this._cancelDraft(),
+      submitStyle: "flex:1;background:#1c1c1b;color:#fff;border:1px solid #1c1c1b;padding:" + (mobile ? "17px 22px" : "15px 20px") + ";font-family:inherit;font-size:13.5px;font-weight:700;letter-spacing:0.14em;border-radius:0;cursor:pointer;" +
+        "",
+      mapRef: (el) => { this._el = el; },
+      scrollRef: (el) => { this._scrollEl = el; },
+      // exit back to the archive: fold the guide away, then hand off under a white veil
+      enterClass: this.state.exiting ? "guide-exit" : (this.state.entered ? "" : "guide-enter"),
+      exiting: !!this.state.exiting,
+      goArchive: (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (this.state.exiting) return;
+        this.setState({ exiting: true });
+        this._exitTimer = setTimeout(() => {
+          window.location.href = "index.html#return-01";
+        }, 580);
+      },
+      // front / back sides
+      frontStyle: (this.state.side === "front" ? "display:flex;" : "display:none;") + (mobile ? "flex-direction:column;" : "") + "flex:1;min-width:0;",
+      backOpen: this.state.side === "back",
+      flipSide: () => {
+        if (this.state.flipPhase) return; // ignore clicks mid-flip
+        const toBack = this.state.side === "front";
+        // phase 1: rotate the guide to edge-on
+        this.setState({ flipPhase: "out" });
+        clearTimeout(this._flipTimer);
+        this._flipTimer = setTimeout(() => {
+          // midpoint: swap sides while edge-on, then rotate back down
+          this.setState({ side: toBack ? "back" : "front", flipPhase: "in" }, () => {
+            if (!toBack && this._map) this._map.resize();
+          });
+          this._flipTimer = setTimeout(() => this.setState({ flipPhase: null }), 360);
+        }, 290);
+      },
+      guideFlipClass: this.state.flipPhase === "out" ? "flip-out" : (this.state.flipPhase === "in" ? "flip-in" : ""),
+      cornerText: this.state.side === "front" ? "TURN OVER →" : "← BACK TO MAP",
+      countText: data.length + " EXHIBITS",
+      // gallery view
+      galleryOpen: this.state.gallery != null,
+      closeGallery: () => this.setState({ gallery: null }),
+      stopClick: (e) => e.stopPropagation(),
+      gal: this.state.gallery != null ? {
+        num: String(this.state.gallery + 1).padStart(2, "0"),
+        title: data[this.state.gallery].title,
+        labelTitle: data[this.state.gallery].labelTitle,
+        body: data[this.state.gallery].body,
+        author: data[this.state.gallery].author,
+        date: data[this.state.gallery].date,
+        place: data[this.state.gallery].place,
+        coordText: data[this.state.gallery].coord[1].toFixed(4) + "° N, " + Math.abs(data[this.state.gallery].coord[0]).toFixed(4) + "° W",
+        slotId: "moore-homestead-playground-exhibit-" + String(this.state.gallery + 1).padStart(2, "0"),
+      } : {},
+      galPhStyle: "width:100%;height:225px;margin:0 0 20px;cursor:zoom-in;background:hsl(" + (((this.state.gallery || 0) * 137.5 + 40) % 360) + ",38%,79%);",
+      galPhClick: (ev) => {
+        ev.stopPropagation();
+        this.setState({ lightbox: { type: "color", color: "hsl(" + (((this.state.gallery || 0) * 137.5 + 40) % 360) + ",38%,79%)" } });
+      },
+      slotLbClick: (ev) => {
+        ev.stopPropagation();
+        const host = ev.currentTarget.parentNode.querySelector("image-slot");
+        const im = host && host.shadowRoot && host.shadowRoot.querySelector(".frame img");
+        if (im && im.getAttribute("src")) this.setState({ lightbox: { url: im.src, type: "image" } });
+      },
+      lightboxOn: !!this.state.lightbox,
+      lightboxClose: () => this.setState({ lightbox: null }),
+      lightboxImgRef: (el) => {
+        const lb = this.state.lightbox;
+        if (!el || !lb) return;
+        const url = lb.type === "color" ? lb.color : (lb.url || lb);
+        if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === url) return;
+        el.innerHTML = "";
+        if (lb.type === "color") {
+          const d = document.createElement("div");
+          d.dataset.src = url;
+          d.style.cssText = "width:min(80vw,860px);height:min(68vh,640px);background:" + url + ";";
+          el.appendChild(d);
+          return;
+        }
+        const isVid = lb.type === "video";
+        const node = document.createElement(isVid ? "video" : "img");
+        node.src = url; node.dataset.src = url;
+        if (isVid) { node.controls = true; node.autoplay = true; node.loop = true; node.playsInline = true; node.muted = false; }
+        else node.alt = "";
+        node.style.cssText = "max-width:100%;max-height:calc(100vh - 56px);width:auto;height:auto;display:block;";
+        el.appendChild(node);
+      },
+      galIsImg: this.state.gallery != null && !!(data[this.state.gallery].media && data[this.state.gallery].media.type === "image"),
+      galIsVid: this.state.gallery != null && !!(data[this.state.gallery].media && data[this.state.gallery].media.type === "video"),
+      galSlotOn: this.state.gallery == null || !data[this.state.gallery].media,
+      galImgRef: (el) => {
+        const g = this.state.gallery != null ? data[this.state.gallery] : null;
+        if (!el || !g || !g.media) return;
+        if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === g.media.url) return;
+        el.innerHTML = "";
+        const im = document.createElement("img");
+        im.src = g.media.url; im.dataset.src = g.media.url; im.alt = "";
+        im.style.cssText = "width:100%;height:auto;display:block;cursor:zoom-in;";
+        im.addEventListener("click", (ev) => { ev.stopPropagation(); this.setState({ lightbox: { url: g.media.url, type: "image" } }); });
+        el.appendChild(im);
+      },
+      galVidRef: (el) => {
+        const g = this.state.gallery != null ? data[this.state.gallery] : null;
+        if (!el || !g || !g.media) return;
+        if (el.firstChild && el.firstChild.dataset && el.firstChild.dataset.src === g.media.url) return;
+        el.innerHTML = "";
+        if (!g.media.url) {
+          el.innerHTML = '<div style="height:160px;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;">VIDEO PREVIEW EXPIRED</span></div>';
+          return;
+        }
+        const v = document.createElement("video");
+        v.src = g.media.url; v.dataset.src = g.media.url;
+        v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
+        v.style.cssText = "width:100%;height:auto;display:block;cursor:zoom-in;";
+        v.addEventListener("click", (ev) => { ev.stopPropagation(); this.setState({ lightbox: { url: g.media.url, type: "video" } }); });
+        el.appendChild(v);
+      },
+      backColumns: (() => {
+        const n = mobile ? 1 : 3;
+        const cols = Array.from({ length: n }, () => ({ items: [] }));
+        cards.forEach((c, i) => cols[i % n].items.push(c));
+        return cols;
+      })(),
+      backList: cards,
+    };
+  }
+}
+</script>
+</body>
+
+</html>
