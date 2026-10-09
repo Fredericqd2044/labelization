@@ -339,9 +339,6 @@
               <header
                 style="flex:none;display:flex;justify-content:space-between;align-items:flex-end;padding:22px 28px 24px;background:{{ theme }};color:#ffffff;">
                 <div>
-                  <p
-                    style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.2em;color:rgba(255,255,255,0.75);">
-                    GUIDE 03 · CENTRAL PARK · REVERSE SIDE</p>
                   <h1
                     style="margin:0;font-size:40px;line-height:0.98;font-weight:700;letter-spacing:-0.025em;color:#ffffff;">
                     Exhibit Overview</h1>
@@ -376,12 +373,6 @@
                     </div>
                   </sc-for>
                 </div>
-
-                <footer
-                  style="display:flex;justify-content:space-between;margin:0 28px;padding:14px 0 20px;border-top:1px solid #1c1c1b;font-size:9.5px;font-weight:700;letter-spacing:0.14em;color:#8a8a86;">
-                  <span>A PARTICIPATORY LABELING PROJECT</span>
-                  <span>LABEL-IZATION · 2026</span>
-                </footer>
               </div>
             </div>
           </sc-if>
@@ -392,7 +383,7 @@
             <div data-screen-label="Add Label Modal" onClick="{{ cancelDraft }}"
               style="position:{{ overlayPos }};inset:0;z-index:55;background:rgba(255,255,255,0.65);display:flex;align-items:center;justify-content:center;padding-left:{{ modalPadLeft }};box-sizing:border-box;">
               <div onClick="{{ stopClick }}" class="guide-scroll {{ modalShakeClass }}"
-                style="width:460px;max-width:{{ modalMaxW }};max-height:75%;overflow-y:auto;background:rgba(255,255,255,0.65);border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:22px 26px 26px;animation:settle 260ms ease both;">
+                style="width:420px;max-width:{{ modalMaxW }};max-height:85vh;overflow-y:auto;background:rgba(255,255,255,0.65);border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:22px 26px 26px;animation:settle 260ms ease both;">
                 <div
                   style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1c1c1b;padding-bottom:12px;">
                   <p style="margin:0;font-size:17px;font-weight:700;letter-spacing:0.16em;color:#1c1c1b;">ADD YOUR LABEL
@@ -539,7 +530,7 @@
             <div data-screen-label="Label Gallery View" onClick="{{ closeGallery }}"
               style="position:{{ overlayPos }};inset:0;z-index:60;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;">
               <div onClick="{{ stopClick }}" class="guide-scroll"
-                style="width:500px;max-width:{{ galMaxW }};max-height:85%;overflow-y:auto;background:#ffffff;border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:32px 34px 32px;animation:settle 260ms ease both;">
+                style="width:420px;max-width:{{ galMaxW }};max-height:80vh;overflow-y:auto;background:#ffffff;border:1px solid #1c1c1b;box-shadow:0 14px 44px rgba(20,30,28,0.22);padding:24px 28px 24px;animation:settle 260ms ease both;">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 14px;">
                   <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.22em;color:{{ theme }};">EXHIBIT {{
                     gal.num }}</p>
@@ -557,9 +548,9 @@
                   <div onClick="{{ galPhClick }}" style="{{ galPhStyle }}"></div>
                 </sc-if>
                 <h1
-                  style="margin:0 0 20px;font-size:32px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;color:#1c1c1b;">
+                  style="margin:0 0 16px;font-size:24px;line-height:1.15;font-weight:700;letter-spacing:-0.02em;color:#1c1c1b;">
                   {{ gal.title }}</h1>
-                <p style="margin:0 0 22px;font-size:16px;line-height:1.7;color:#1c1c1b;">{{ gal.body }}</p>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#1c1c1b;">{{ gal.body }}</p>
                 <dl
                   style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 24px;font-size:14px;border-top:3px solid #1c1c1b;padding-top:14px;color:#1c1c1b;">
                   <dt style="font-size:9.5px;font-weight:700;letter-spacing:0.16em;color:#8a8a86;padding-top:2px;">
@@ -601,10 +592,8 @@ class Component extends DCLogic {
     this._enterTimer = setTimeout(() => this.setState({ entered: true }, () => { if (this._map) this._map.resize(); }), 1000);
     this._onLbKey = (e) => { if (e.key === "Escape" && this.state.lightbox) this.setState({ lightbox: null }); };
     window.addEventListener("keydown", this._onLbKey);
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem("labelization-central-park-user-labels-v3") || "[]"); } catch (e) {}
-    saved.forEach(en => { if (en.media && /^blob:/.test(en.media.url || "")) en.media.url = ""; });
-    this.setState({ userLabels: saved }, () => import("./parks-geo.js").then(m => { this._geo = m.parksConfig.centralPark; this._initMap(); }));
+    import("./parks-geo.js").then(m => { this._geo = m.parksConfig.centralPark; this._initMap(); });
+    this._loadPins();
   }
 
   _all() {
@@ -624,6 +613,53 @@ class Component extends DCLogic {
   }
 
   _theme() { return "#3fa6a0"; }
+    // ── Supabase ──────────────────────────
+  _parkId() { return 3; } // Central Park
+
+  _sb() {
+    if (!this._sbPromise) {
+      this._sbPromise = import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")
+        .then(m => m.createClient(
+          "https://zejmcsaxuwbnclbqksed.supabase.co",
+          "sb_publishable_NP6RBWuBP6P3TbdzdTcfNg_85p873_r"
+        ));
+    }
+    return this._sbPromise;
+  }
+
+  _esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  _rowToLabel(p) {
+    return {
+      id: p.id,
+      title: p.title,
+      labelTitle: p.title,
+      place: "Visitor-marked location",
+      coord: [p.longitude, p.latitude],
+      author: p.is_anonymous ? "Anonymous" : (p.author || "Anonymous"),
+      category: "Visitor label",
+      date: new Date(p.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+      body: p.body,
+      media: p.media_url ? { type: p.media_type, url: p.media_url } : null,
+    };
+  }
+
+  async _loadPins() {
+    try {
+      const sb = await this._sb();
+      const { data, error } = await sb.from("pins")
+        .select("*")
+        .eq("park_id", this._parkId())
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      this.setState({ userLabels: data.map(p => this._rowToLabel(p)) }, () => this._makeMarkers());
+    } catch (e) {
+      console.error("Could not load pins:", e);
+    }
+  }
 
   _styleUrl() {
     const s = this.props.mapStyle ?? "grayscale";
@@ -781,29 +817,54 @@ class Component extends DCLogic {
     this.setState({ draft: null, formErr: false });
   }
 
-  _submitDraft() {
+  async _submitDraft() {
     const d = this.state.draft;
     if (!d || !(d.title || "").trim() || !(d.body || "").trim()) return;
-    const entry = {
-      title: d.title.trim(),
-      labelTitle: d.title.trim(),
-      place: "Visitor-marked location",
-      coord: d.coord, // recorded automatically from the map click that opened the form
-      author: d.anon ? "Anonymous" : ((d.author || "").trim() || "Anonymous"),
-      category: "Visitor label",
-      media: d.media || "none",
-      date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-      body: d.body.trim(),
-      // preview object URL: lives for this session; real storage comes with the backend
-      media: d.mediaUrl ? { type: d.media === "video" ? "video" : "image", url: d.mediaUrl } : null,
-    };
-    const userLabels = (this.state.userLabels || []).concat([entry]);
-    try { localStorage.setItem("labelization-central-park-user-labels-v3", JSON.stringify(userLabels)); } catch (e) {}
-    if (this._draftMarker) { this._draftMarker.remove(); this._draftMarker = null; }
-    this.setState({ userLabels, draft: null }, () => {
-      this._makeMarkers();
-      this._select(userLabels.length - 1 + this._data().length);
-    });
+    if (this._saving) return; // prevent double clicks
+    this._saving = true;
+
+    try {
+      const sb = await this._sb();
+
+      // 1. Upload the image or video, get its link
+      let media_url = null, media_type = null;
+      if (d.file) {
+        const ext = (d.file.name.split(".").pop() || "bin").toLowerCase();
+        const path = `park-${this._parkId()}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const up = await sb.storage.from("pin-media").upload(path, d.file, { contentType: d.file.type });
+        if (up.error) throw up.error;
+        media_url = sb.storage.from("pin-media").getPublicUrl(path).data.publicUrl;
+        media_type = d.file.type.startsWith("video/") ? "video" : "image";
+      }
+
+      // 2. Save the pin
+      const anon = !!d.anon || !(d.author || "").trim();
+      const { data, error } = await sb.from("pins").insert({
+        park_id: this._parkId(),
+        title: d.title.trim(),
+        body: d.body.trim(),
+        latitude: d.coord[1],
+        longitude: d.coord[0],
+        author: anon ? null : d.author.trim(),
+        is_anonymous: anon,
+        media_url,
+        media_type,
+      }).select().single();
+      if (error) throw error;
+
+      // 3. Show it on the map
+      const userLabels = (this.state.userLabels || []).concat([this._rowToLabel(data)]);
+      if (this._draftMarker) { this._draftMarker.remove(); this._draftMarker = null; }
+      this.setState({ userLabels, draft: null }, () => {
+        this._makeMarkers();
+        this._select(userLabels.length - 1 + this._data().length);
+      });
+    } catch (e) {
+      console.error("Could not save pin:", e);
+      alert("Sorry, your exhibit couldn't be saved. Please try again.\n\n" + (e.message || e));
+    } finally {
+      this._saving = false;
+    }
   }
 
   // Theme hue → map tints, so each guide's map adapts to its color automatically
@@ -1162,15 +1223,15 @@ class Component extends DCLogic {
         ? "order:2;position:relative;z-index:6;padding:22px 16px 28px;background:#ffffff;"
         : "flex:1;overflow-y:auto;position:relative;z-index:6;padding:26px 28px 30px;",
       mapWrapStyle: mobile
-        ? "order:1;flex:none;position:relative;height:58vh;min-height:340px;background:#eef0ef;border-bottom:1px solid #1c1c1b;"
+        ? "order:1;flex:none;position:relative;height:70vh;min-height:340px;background:#eef0ef;border-bottom:1px solid #1c1c1b;"
         : "flex:1;position:relative;background:#eef0ef;",
       titleSize: mobile ? "30px" : "52px",
       archPad: mobile ? "12px 16px" : "9px 14px",
       backCols: mobile ? "1fr" : "repeat(3,1fr)",
       overlayPos: mobile ? "fixed" : "absolute",
       modalPadLeft: mobile ? "0" : "420px",
-      modalMaxW: mobile ? "calc(100vw - 24px)" : "54%",
-      galMaxW: mobile ? "calc(100vw - 24px)" : "52%",
+      modalMaxW: mobile ? "calc(100vw - 32px)" : "calc(100% - 460px)",
+      galMaxW: mobile ? "calc(100vw - 32px)" : "calc(100% - 460px)",
       flipPad: mobile ? "12px 16px" : "14px 22px",
       flipFont: mobile ? "10px" : "11px",
       flipPos: "position:absolute;right:0;top:0;",
@@ -1226,7 +1287,7 @@ class Component extends DCLogic {
         if (file.type.indexOf("video") === 0) {
           // videos: session-only preview (too heavy for localStorage)
           const url = URL.createObjectURL(file);
-          this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "video", mediaUrl: url }) } : null));
+          this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "video", mediaUrl: url, file }) } : null));
           return;
         }
         // images: downscale + re-encode to a data URL so they survive refresh
@@ -1241,7 +1302,7 @@ class Component extends DCLogic {
             cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
             let url;
             try { url = cv.toDataURL("image/jpeg", 0.82); } catch (err) { url = rd.result; }
-            this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "photo", mediaUrl: url }) } : null));
+            this.setState(s => (s.draft ? { draft: Object.assign({}, s.draft, { media: "photo", mediaUrl: url, file }) } : null));
           };
           im.src = rd.result;
         };
@@ -1253,7 +1314,7 @@ class Component extends DCLogic {
         el.innerHTML = "";
         const im = document.createElement("img");
         im.src = d.mediaUrl; im.dataset.src = d.mediaUrl; im.alt = "";
-        im.style.cssText = "width:100%;height:auto;display:block;";
+        im.style.cssText = "width:100%;max-height:300px;height:auto;display:block;object-fit:contain;";
         el.appendChild(im);
       },
       mediaVidRef: (el) => {
@@ -1263,7 +1324,7 @@ class Component extends DCLogic {
         const v = document.createElement("video");
         v.src = d.mediaUrl; v.dataset.src = d.mediaUrl;
         v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
-        v.style.cssText = "width:100%;height:auto;display:block;";
+        v.style.cssText = "width:100%;max-height:300px;height:auto;display:block;object-fit:contain;";
         el.appendChild(v);
       },
       mediaIsImg: !!(d && d.mediaUrl && d.media === "photo"),
@@ -1380,7 +1441,7 @@ class Component extends DCLogic {
         el.innerHTML = "";
         const im = document.createElement("img");
         im.src = g.media.url; im.dataset.src = g.media.url; im.alt = "";
-        im.style.cssText = "width:100%;height:auto;display:block;cursor:zoom-in;";
+        im.style.cssText = "width:100%;max-height:250px;height:auto;display:block;object-fit:contain;cursor:zoom-in;";
         im.addEventListener("click", (ev) => { ev.stopPropagation(); this.setState({ lightbox: { url: g.media.url, type: "image" } }); });
         el.appendChild(im);
       },
@@ -1396,7 +1457,7 @@ class Component extends DCLogic {
         const v = document.createElement("video");
         v.src = g.media.url; v.dataset.src = g.media.url;
         v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
-        v.style.cssText = "width:100%;height:auto;display:block;cursor:zoom-in;";
+        v.style.cssText = "width:100%;max-height:250px;height:auto;display:block;object-fit:contain;cursor:zoom-in;";
         v.addEventListener("click", (ev) => { ev.stopPropagation(); this.setState({ lightbox: { url: g.media.url, type: "video" } }); });
         el.appendChild(v);
       },

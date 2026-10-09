@@ -1,0 +1,7 @@
+node_modules/
+.git/
+scraps/
+.image-slots.state.json
+.thumbnail
+package.json
+package-lock.json
